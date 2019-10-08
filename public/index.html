@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, shrink-to-fit=no, user-scalable=no"
+    />
+    <title>Object Detection Stream</title>
+  </head>
+  <body>
+    <script src="https://cdn.jsdelivr.net/npm/@cloud-annotations/object-detection@0.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@0.12.4"></script>
+    <video
+      id="video"
+      width="1280"
+      height="720"
+      style="position: fixed;"
+      muted
+      controls
+    ></video>
+    <canvas
+      id="canvas"
+      width="1280"
+      height="720"
+      style="position: fixed;"
+    ></canvas>
+    <script>
+      // Test stream from: https://bitmovin.com/mpeg-dash-hls-examples-sample-streams/
+      const LIVE_STREAM_URL =
+        'https://bitmovin-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8'
+
+      const video = document.getElementById('video')
+      const canvas = document.getElementById('canvas')
+
+      // Model from: https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd
+      objectDetector.load('/model_web').then(model => detectFrame(model))
+
+      const detectFrame = async model => {
+        const predictions = await model.detect(video)
+        renderPredictions(predictions)
+        requestAnimationFrame(() => {
+          detectFrame(model)
+        })
+      }
+
+      const renderPredictions = predictions => {
+        const ctx = canvas.getContext('2d')
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+        // Font options.
+        const font = '16px sans-serif'
+        ctx.font = font
+        ctx.textBaseline = 'top'
+        predictions.forEach(prediction => {
+          const x = prediction.bbox[0]
+          const y = prediction.bbox[1]
+          const width = prediction.bbox[2]
+          const height = prediction.bbox[3]
+          const label = `${prediction.class}: ${prediction.score.toFixed(2)}`
+          // Draw the bounding box.
+          ctx.strokeStyle = '#FFFF3F'
+          ctx.lineWidth = 5
+          ctx.strokeRect(x, y, width, height)
+          // Draw the label background.
+          ctx.fillStyle = '#FFFF3F'
+          const textWidth = ctx.measureText(label).width
+          const textHeight = parseInt(font, 10) // base 10
+          ctx.fillRect(x, y, textWidth + 4, textHeight + 4)
+        })
+
+        predictions.forEach(prediction => {
+          const x = prediction.bbox[0]
+          const y = prediction.bbox[1]
+          const label = `${prediction.class}: ${prediction.score.toFixed(2)}`
+          // Draw the text last to ensure it's on top.
+          ctx.fillStyle = '#000000'
+          ctx.fillText(label, x, y)
+        })
+      }
+
+      if (Hls.isSupported()) {
+        const config = { liveDurationInfinity: true }
+        const hls = new Hls(config)
+        hls.loadSource(LIVE_STREAM_URL)
+        hls.attachMedia(video)
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+          video.play()
+        })
+      }
+
+      // hls.js is not supported on platforms that do not have Media Source Extensions (MSE) enabled.
+      // When the browser has built-in HLS support (check using `canPlayType`), we can provide an HLS manifest (i.e. .m3u8 URL) directly to the video element throught the `src` property.
+      // This is using the built-in support of the plain video element, without using hls.js.
+      // Note: it would be more normal to wait on the 'canplay' event below however on Safari (where you are most likely to find built-in HLS support) the video.src URL must be on the user-driven
+      // white-list before a 'canplay' event will be emitted; the last video event that can be reliably listened-for when the URL is not on the white-list is 'loadedmetadata'.
+      else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = LIVE_STREAM_URL
+        video.addEventListener('loadedmetadata', function() {
+          video.play()
+        })
+      }
+    </script>
+  </body>
+</html>
