@@ -1,5 +1,5 @@
 # Object Detection Live Stream
-![]()
+![](screenshots/example.png)
 
 ## Setup
 `git clone` the repo and `cd` into it by running the following command:
