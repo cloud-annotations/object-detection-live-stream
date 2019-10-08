@@ -1,1 +1,1 @@
-# object-detection-stream
+# object-detection-live-stream
